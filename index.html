@@ -95,6 +95,29 @@ main{padding:6px 16px 90px}
 .qb:disabled{opacity:.3}
 .empty{text-align:center;color:var(--gris);padding:50px 20px;font-size:14.5px}
 
+
+/* ===== Recettes ===== */
+.sales-card{width:100%;margin-top:12px;background:var(--noir);border-radius:var(--radius);padding:14px 16px;
+  display:flex;justify-content:space-between;align-items:center;text-align:left;color:var(--creme)}
+.sales-card b{display:block;font-size:19px;color:var(--lime);font-variant-numeric:tabular-nums;margin-top:2px}
+.sc-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:rgba(250,246,236,.7);font-weight:700}
+.sc-right{text-align:right}
+.sc-right em{display:block;font-style:normal;font-size:10.5px;color:rgba(250,246,236,.55);margin-top:2px}
+.ptabs{display:flex;gap:6px;margin:4px 0 12px}
+.ptab{flex:1;padding:9px 4px;border-radius:10px;border:1.5px solid var(--ligne);background:#fff;font-size:12.5px;font-weight:700;color:var(--gris)}
+.ptab.on{background:var(--noir);border-color:var(--noir);color:var(--lime)}
+.s-kpis{display:flex;gap:8px;margin-bottom:10px}
+.s-kpi{flex:1;background:#fff;border:1px solid var(--ligne);border-radius:11px;padding:10px;text-align:center}
+.s-kpi b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+.s-kpi.lime b{color:#5C701A}
+.s-kpi span{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--gris)}
+.s-warn{background:#FDF2E3;border:1px solid #EAD3A8;color:var(--ambre);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:600;margin-bottom:10px}
+.s-row{background:#fff;border:1px solid var(--ligne);border-radius:11px;padding:10px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px}
+.s-info{flex:1;min-width:0}
+.s-name{font-weight:600;font-size:13.5px}
+.s-meta{font-size:11.5px;color:var(--gris);margin-top:2px}
+.s-del{width:36px;height:36px;border-radius:9px;background:#FBEAE7;color:var(--rouge);font-size:14px;font-weight:700;flex-shrink:0}
+
 /* ===== FAB ===== */
 #fab{position:fixed;right:18px;bottom:calc(20px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:18px;
   background:var(--lime);color:var(--noir);font-size:30px;font-weight:700;box-shadow:0 6px 18px rgba(26,26,26,.3);
@@ -186,7 +209,8 @@ main{padding:6px 16px 90px}
   <div class="sheet">
     <h2>Menu<button data-close>✕</button></h2>
     <button class="menu-item" id="mExportJson"><span>💾</span> Sauvegarde complète (JSON)</button>
-    <button class="menu-item" id="mExportCsv"><span>📄</span> Exporter en CSV (Excel)</button>
+    <button class="menu-item" id="mExportCsv"><span>📄</span> Exporter le stock (CSV)</button>
+    <button class="menu-item" id="mExportVentes"><span>💰</span> Exporter les ventes (CSV)</button>
     <button class="menu-item" id="mImport"><span>📥</span> Restaurer une sauvegarde</button>
     <button class="menu-item" id="mReset"><span>♻️</span> Réinitialiser (inventaire de référence du 13/07/2026)</button>
     <p class="menu-note">Conseil : fais une sauvegarde JSON régulièrement (une fois par semaine) et garde le fichier dans ton Drive ou WhatsApp. C'est ton filet de sécurité si tu changes de téléphone.<br><br>Outil offert par <b>Fervia</b> · v1.0</p>

@@ -16,7 +16,7 @@
   };
 
   /* ---------- État ---------- */
-  var state = { products: [], view: 'home', cat: null, filterAlert: false, query: '' };
+  var state = { products: [], sales: [], view: 'home', cat: null, filterAlert: false, query: '' };
   var editingId = null;
   var undoSnapshot = null, undoTimer = null;
 
@@ -27,7 +27,7 @@
     if (raw) {
       try {
         var d = JSON.parse(raw);
-        if (d && d.products && d.products.length) { state.products = d.products; return; }
+        if (d && d.products && d.products.length) { state.products = d.products; state.sales = d.sales || []; return; }
       } catch (e) {}
     }
     seed();
@@ -37,11 +37,12 @@
     state.products = SEED_DATA.map(function (p) {
       return { id: uid(), cat: p.cat, name: p.name, brand: p.brand, qty: p.qty, price: p.price, cost: p.cost || 0, ddm: p.ddm, note: p.note };
     });
+    state.sales = [];
     save();
   }
 
   function save() {
-    storage.set(KEY, JSON.stringify({ v: 1, savedAt: new Date().toISOString(), products: state.products }));
+    storage.set(KEY, JSON.stringify({ v: 1, savedAt: new Date().toISOString(), products: state.products, sales: state.sales }));
   }
 
   /* ---------- Utilitaires ---------- */
@@ -99,6 +100,20 @@
     $('stVal').textContent = euro(val);
   }
 
+  function salesStats(sinceMs) {
+    var n = 0, ca = 0, ben = 0, sansPA = 0;
+    state.sales.forEach(function (s) {
+      if (sinceMs && s.t < sinceMs) return;
+      n++; ca += s.price;
+      if (s.cost > 0) ben += (s.price - s.cost); else sansPA++;
+    });
+    return { n: n, ca: ca, ben: ben, sansPA: sansPA };
+  }
+
+  function startOfToday() {
+    var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime();
+  }
+
   function catEmoji(c) {
     var n = norm(c);
     if (n.indexOf('miel') > -1 || n.indexOf('epicerie') > -1) return '🍯';
@@ -120,6 +135,11 @@
       html += '<button class="alert-banner" data-alerts="1"><span>⚠️ ' + alertCount +
         ' produit' + (alertCount > 1 ? 's' : '') + ' à surveiller</span><em>stock bas · DDM · doublons →</em></button>';
     }
+    var st = salesStats(startOfToday());
+    html += '<button class="sales-card" data-sales="1"><div><span class="sc-label">💰 Recettes du jour</span>' +
+      '<b>' + euro(st.ca) + '</b></div>' +
+      '<div class="sc-right"><span class="sc-label">Bénéfice</span><b>' + (st.n ? euro(st.ben) : '—') + '</b>' +
+      '<em>' + st.n + ' vente' + (st.n > 1 ? 's' : '') + ' →</em></div></button>';
     html += '<div class="grid">';
     cats.forEach(function (c) {
       var refs = 0, arts = 0, warn = 0;
@@ -199,6 +219,44 @@
 
   function byName(a, b) { return norm(a.name).localeCompare(norm(b.name), 'fr'); }
 
+  var salesPeriod = 'jour';
+
+  function renderSales() {
+    var now = Date.now();
+    var bounds = { jour: startOfToday(), semaine: now - 7 * 86400000, mois: now - 30 * 86400000, tout: 0 };
+    var since = bounds[salesPeriod];
+    var st = salesStats(since);
+    var html = '<div class="backbar"><button data-back="1">← Retour</button><h3>💰 Recettes</h3></div>';
+    html += '<div class="ptabs">';
+    [['jour', "Aujourd'hui"], ['semaine', '7 jours'], ['mois', '30 jours'], ['tout', 'Tout']].forEach(function (t) {
+      html += '<button class="ptab' + (salesPeriod === t[0] ? ' on' : '') + '" data-period="' + t[0] + '">' + t[1] + '</button>';
+    });
+    html += '</div>';
+    html += '<div class="s-kpis">' +
+      '<div class="s-kpi"><b>' + st.n + '</b><span>Ventes</span></div>' +
+      '<div class="s-kpi"><b>' + euro(st.ca) + '</b><span>Chiffre d\u2019affaires</span></div>' +
+      '<div class="s-kpi lime"><b>' + (st.n ? euro(st.ben) : '—') + '</b><span>Bénéfice</span></div>' +
+    '</div>';
+    if (st.sansPA) {
+      html += '<div class="s-warn">⚠️ ' + st.sansPA + ' vente' + (st.sansPA > 1 ? 's' : '') +
+        ' sans prix d\u2019achat renseigné — le bénéfice réel est plus élevé que le chiffre affiché.</div>';
+    }
+    var list = state.sales.filter(function (s) { return !since || s.t >= since; }).slice().reverse().slice(0, 100);
+    if (!list.length) {
+      html += '<div class="empty">Aucune vente sur cette période.<br>Chaque appui sur − enregistre une vente automatiquement.</div>';
+    } else {
+      list.forEach(function (s) {
+        var d = new Date(s.t);
+        function z(n) { return (n < 10 ? '0' : '') + n; }
+        var when = z(d.getDate()) + '/' + z(d.getMonth() + 1) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
+        html += '<div class="s-row"><div class="s-info"><div class="s-name">' + esc(s.name) + '</div>' +
+          '<div class="s-meta">' + when + ' · ' + euro(s.price) + (s.cost > 0 ? ' · bénéf ' + euro(s.price - s.cost) : ' · PA non renseigné') + '</div></div>' +
+          '<button class="s-del" data-delsale="' + s.t + '_' + s.id + '">✕</button></div>';
+      });
+    }
+    listEl.innerHTML = html;
+  }
+
   function render() {
     renderStats();
     var q = norm(state.query);
@@ -209,6 +267,8 @@
       renderProducts(res, 'Recherche', true);
     } else if (state.filterAlert) {
       renderProducts(state.products.filter(hasAlert), '⚠️ À surveiller', true);
+    } else if (state.view === 'sales') {
+      renderSales();
     } else if (state.view === 'cat' && state.cat) {
       renderProducts(state.products.filter(function (p) { return (p.cat || 'Divers') === state.cat; }), state.cat, false);
     } else {
@@ -234,10 +294,15 @@
     if (!p) return;
     var next = p.qty + delta;
     if (next < 0) return;
-    undoSnapshot = { id: id, qty: p.qty };
+    undoSnapshot = { id: id, qty: p.qty, sale: null };
     p.qty = next;
+    if (delta < 0) {
+      var sale = { t: Date.now(), id: p.id, name: p.name, price: p.price, cost: p.cost || 0 };
+      state.sales.push(sale);
+      undoSnapshot.sale = sale;
+    }
     save(); render();
-    showToast((delta < 0 ? '−1 · ' : '+1 · ') + p.name + ' → ' + p.qty);
+    showToast(delta < 0 ? ('Vente · ' + p.name + ' · ' + euro(p.price)) : ('+1 · ' + p.name + ' → ' + p.qty));
   }
 
   function showToast(msg) {
@@ -251,7 +316,12 @@
   $('toastUndo').addEventListener('click', function () {
     if (undoSnapshot) {
       var p = findP(undoSnapshot.id);
-      if (p) { p.qty = undoSnapshot.qty; save(); render(); }
+      if (p) p.qty = undoSnapshot.qty;
+      if (undoSnapshot.sale) {
+        var i = state.sales.indexOf(undoSnapshot.sale);
+        if (i > -1) state.sales.splice(i, 1);
+      }
+      save(); render();
       undoSnapshot = null;
     }
     $('toast').classList.remove('show');
@@ -259,7 +329,7 @@
 
   /* ---------- Délégation clics ---------- */
   listEl.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-minus],[data-plus],[data-edit],[data-cat-open],[data-back],[data-alerts]');
+    var el = e.target.closest('[data-minus],[data-plus],[data-edit],[data-cat-open],[data-back],[data-alerts],[data-sales],[data-period],[data-delsale]');
     if (!el) return;
     if (el.dataset.minus) changeQty(el.dataset.minus, -1);
     else if (el.dataset.plus) changeQty(el.dataset.plus, +1);
@@ -267,6 +337,19 @@
     else if (el.dataset.catOpen) { state.view = 'cat'; state.cat = el.dataset.catOpen; render(); window.scrollTo(0, 0); }
     else if (el.dataset.back) goHome();
     else if (el.dataset.alerts) { state.filterAlert = true; render(); window.scrollTo(0, 0); }
+    else if (el.dataset.sales) { state.view = 'sales'; render(); window.scrollTo(0, 0); }
+    else if (el.dataset.period) { salesPeriod = el.dataset.period; renderSales(); }
+    else if (el.dataset.delsale) {
+      var parts = el.dataset.delsale.split('_');
+      for (var k = 0; k < state.sales.length; k++) {
+        if (String(state.sales[k].t) === parts[0] && state.sales[k].id === parts[1]) {
+          if (confirm('Supprimer cette vente du journal ?\n(Le stock ne sera pas modifié — utilise + si tu veux remettre l\u2019article en rayon.)')) {
+            state.sales.splice(k, 1); save(); renderSales();
+          }
+          break;
+        }
+      }
+    }
   });
 
   /* ---------- Recherche ---------- */
@@ -428,6 +511,23 @@
     close(ovMenu);
   });
 
+  $('mExportVentes').addEventListener('click', function () {
+    var rows = [['Date', 'Heure', 'Produit', 'Prix vente €', 'Prix achat €', 'Bénéfice €']];
+    state.sales.forEach(function (s) {
+      var d = new Date(s.t);
+      function z(n) { return (n < 10 ? '0' : '') + n; }
+      rows.push([z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear(), z(d.getHours()) + ':' + z(d.getMinutes()),
+        s.name, s.price.toFixed(2).replace('.', ','),
+        (s.cost > 0 ? s.cost.toFixed(2).replace('.', ',') : ''),
+        (s.cost > 0 ? (s.price - s.cost).toFixed(2).replace('.', ',') : '')]);
+    });
+    var csv = '\uFEFF' + rows.map(function (r) {
+      return r.map(function (c) { return '"' + (c === undefined || c === null ? '' : c).toString().replace(/"/g, '""') + '"'; }).join(';');
+    }).join('\r\n');
+    download('healthy-sounna-ventes-' + stamp() + '.csv', csv, 'text/csv;charset=utf-8');
+    close(ovMenu);
+  });
+
   $('mImport').addEventListener('click', function () { $('fileImport').click(); });
   $('fileImport').addEventListener('change', function () {
     var f = this.files[0];
@@ -443,6 +543,7 @@
                    qty: Math.max(0, parseInt(p.qty, 10) || 0), price: parseFloat(p.price) || 0, cost: parseFloat(p.cost) || 0,
                    ddm: p.ddm || '', note: p.note || '' };
         });
+        state.sales = (d.sales || []).filter(function (s) { return s && s.t && s.name; });
         save(); render(); close(ovMenu);
       } catch (e) { alert('Fichier invalide. Utilise une sauvegarde JSON exportée depuis cette application.'); }
     };
