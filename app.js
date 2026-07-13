@@ -72,13 +72,13 @@
     if (!date || isNaN(date)) return null;
     var days = (date - new Date()) / 86400000;
     if (days < 0) return 'past';
-    if (days < 90) return 'soon';
+    if (days < 180) return 'soon';
     return null;
   }
 
   function hasAlert(p) {
     var d = ddmStatus(p.ddm);
-    return p.qty <= 3 || d === 'past' || d === 'soon' || /DOUBLON/i.test(p.note || '');
+    return p.qty <= 5 || d === 'past' || d === 'soon' || /DOUBLON/i.test(p.note || '');
   }
 
   function allCats() {
@@ -143,7 +143,7 @@
   function badgesHtml(p) {
     var b = '';
     if (p.qty === 0) b += '<span class="badge b-out">Épuisé</span>';
-    else if (p.qty <= 3) b += '<span class="badge b-low">Stock bas</span>';
+    else if (p.qty <= 5) b += '<span class="badge b-low">Stock bas</span>';
     var d = ddmStatus(p.ddm);
     if (d === 'past') b += '<span class="badge b-ddm">DDM dépassée</span>';
     else if (d === 'soon') b += '<span class="badge b-ddmsoon">DDM proche</span>';
