@@ -1,4 +1,4 @@
-var CACHE = 'hs-stock-v1.9';
+var CACHE = 'hs-stock-v1.10';
 var ASSETS = ['./', './index.html', './app.js', './data.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {

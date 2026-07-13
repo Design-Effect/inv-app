@@ -193,9 +193,10 @@
     '</div>';
   }
 
-  function renderProducts(items, title, grouped) {
+  function renderProducts(items, title, grouped, subtitle) {
     var html = '<div class="backbar"><button data-back="1">← Catégories</button><h3>' + esc(title) +
       ' <em>' + items.length + '</em></h3></div>';
+    if (subtitle) html += '<div class="cat-stats">' + subtitle + '</div>';
     if (!items.length) {
       html += '<div class="empty">Aucun produit trouvé.<br>Modifie ta recherche ou ajoute un produit avec le bouton +.</div>';
       listEl.innerHTML = html;
@@ -270,7 +271,10 @@
     } else if (state.view === 'sales') {
       renderSales();
     } else if (state.view === 'cat' && state.cat) {
-      renderProducts(state.products.filter(function (p) { return (p.cat || 'Divers') === state.cat; }), state.cat, false);
+      var items = state.products.filter(function (p) { return (p.cat || 'Divers') === state.cat; });
+      var arts = 0, val = 0;
+      items.forEach(function (p) { arts += p.qty; val += p.qty * p.price; });
+      renderProducts(items, state.cat, false, arts + ' articles en stock · Valeur : <b>' + euro(val) + '</b>');
     } else {
       renderHome();
     }
