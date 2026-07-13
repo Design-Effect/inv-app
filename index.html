@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Healthy Sounna — Stock</title>
+<meta name="description" content="Gestion de l'inventaire Healthy Sounna">
+<meta name="theme-color" content="#1A1A1A">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+:root{
+  --noir:#1A1A1A; --creme:#FAF6EC; --lime:#A1BC2E;
+  --creme-2:#F3EDDD; --ligne:#E4DCC6; --gris:#6E6A5E;
+  --rouge:#C0392B; --ambre:#B7791F;
+  --radius:14px;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Segoe UI,Calibri,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%}
+body{background:var(--creme);color:var(--noir);min-height:100%;font-size:16px;line-height:1.4;
+  padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+
+/* ===== En-tête ===== */
+header{background:var(--noir);color:var(--creme);padding:calc(14px + env(safe-area-inset-top)) 16px 14px;
+  position:sticky;top:0;z-index:20;box-shadow:0 2px 10px rgba(26,26,26,.25)}
+.h-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.h-title{font-size:17px;font-weight:700;letter-spacing:.3px}
+.h-title small{display:block;font-size:11px;font-weight:600;color:var(--lime);letter-spacing:1.5px;text-transform:uppercase}
+#btnMenu{width:42px;height:42px;border-radius:10px;background:rgba(250,246,236,.08);color:var(--creme);
+  font-size:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.h-stats{display:flex;gap:8px;margin-top:12px}
+.stat{flex:1;background:rgba(250,246,236,.07);border:1px solid rgba(250,246,236,.12);border-radius:10px;padding:8px 10px;text-align:center}
+.stat b{display:block;font-size:16px;color:var(--lime);font-variant-numeric:tabular-nums}
+.stat span{font-size:10.5px;color:rgba(250,246,236,.7);text-transform:uppercase;letter-spacing:.6px}
+
+/* ===== Barre recherche + filtres ===== */
+.tools{position:sticky;top:0;z-index:15;background:var(--creme);padding:12px 16px 8px;border-bottom:1px solid var(--ligne)}
+.search-row{display:flex;gap:8px}
+#search{flex:1;height:46px;border:1.5px solid var(--ligne);border-radius:12px;padding:0 14px;background:#fff;outline:none}
+#search:focus{border-color:var(--lime)}
+#btnClear{width:46px;height:46px;border-radius:12px;border:1.5px solid var(--ligne);background:#fff;font-size:17px;color:var(--gris);display:none}
+/* ===== Accueil : cartes catégories ===== */
+.alert-banner{width:100%;margin-top:14px;background:#FDF2E3;border:1.5px solid #EAD3A8;border-radius:var(--radius);
+  padding:13px 15px;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left}
+.alert-banner span{font-weight:700;font-size:14px;color:var(--ambre)}
+.alert-banner em{font-style:normal;font-size:11.5px;color:var(--ambre);opacity:.85;white-space:nowrap}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.cat-card{background:#fff;border:1px solid var(--ligne);border-radius:var(--radius);padding:13px 14px;text-align:left;
+  min-height:104px;display:flex;flex-direction:column;gap:4px;transition:transform .08s}
+.cat-card:active{transform:scale(.97)}
+.cc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.cc-ico{font-size:22px}
+.cc-warn{font-size:11px;font-weight:800;color:var(--ambre);background:#FDF2E3;padding:2px 7px;border-radius:6px}
+.cat-card b{font-size:14px;line-height:1.25}
+.cat-card span{font-size:11.5px;color:var(--gris)}
+.backbar{display:flex;align-items:center;gap:12px;margin:16px 2px 10px}
+.backbar button{height:42px;padding:0 14px;border-radius:11px;background:var(--noir);color:var(--creme);font-weight:700;font-size:13px}
+.backbar h3{font-size:15.5px}
+.backbar h3 em{font-style:normal;color:var(--gris);font-weight:600;font-size:13px}
+
+/* ===== Liste produits ===== */
+main{padding:6px 16px 90px}
+.cat-head{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--gris);
+  margin:20px 2px 8px;display:flex;justify-content:space-between;align-items:baseline}
+.cat-head em{font-style:normal;font-weight:600;font-size:11.5px}
+.card{background:#fff;border:1px solid var(--ligne);border-radius:var(--radius);padding:12px 14px;margin-bottom:9px;
+  display:flex;align-items:center;gap:10px}
+.card.zero{opacity:.55}
+.p-info{flex:1;min-width:0}
+.p-name{font-weight:600;font-size:14.5px;line-height:1.3;word-break:break-word}
+.edit-hint{font-size:12px;color:var(--lime);opacity:.9}
+.p-meta{font-size:12px;color:var(--gris);margin-top:3px}
+.p-meta b{color:var(--noir);font-weight:600}
+.p-meta .pa{color:#A8A390;font-size:11px}
+.badges{margin-top:5px;display:flex;flex-wrap:wrap;gap:5px}
+.badge{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:.3px}
+.b-low{background:#FDF2E3;color:var(--ambre)}
+.b-out{background:#FBEAE7;color:var(--rouge)}
+.b-ddm{background:#FBEAE7;color:var(--rouge)}
+.b-ddmsoon{background:#FDF2E3;color:var(--ambre)}
+.b-dup{background:#F0F4DC;color:#5C701A}
+.qty-box{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0}
+.qty-val{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;min-width:34px;text-align:center}
+.qty-btns{display:flex;gap:8px}
+.qb{width:46px;height:46px;border-radius:12px;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  transition:transform .08s}
+.qb:active{transform:scale(.92)}
+.qb.minus{background:var(--noir);color:var(--creme)}
+.qb.plus{background:var(--lime);color:var(--noir)}
+.qb:disabled{opacity:.3}
+.empty{text-align:center;color:var(--gris);padding:50px 20px;font-size:14.5px}
+
+/* ===== FAB ===== */
+#fab{position:fixed;right:18px;bottom:calc(20px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:18px;
+  background:var(--lime);color:var(--noir);font-size:30px;font-weight:700;box-shadow:0 6px 18px rgba(26,26,26,.3);
+  display:flex;align-items:center;justify-content:center;z-index:25}
+#fab:active{transform:scale(.94)}
+
+/* ===== Modales ===== */
+.overlay{position:fixed;inset:0;background:rgba(26,26,26,.55);z-index:40;display:none;align-items:flex-end;justify-content:center}
+.overlay.open{display:flex}
+.sheet{background:var(--creme);width:100%;max-width:560px;border-radius:22px 22px 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));
+  max-height:92vh;overflow-y:auto;animation:up .22s ease}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.sheet h2{font-size:17px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.sheet h2 button{font-size:22px;color:var(--gris);width:40px;height:40px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--gris);margin-bottom:5px}
+.field input,.field select{width:100%;height:48px;border:1.5px solid var(--ligne);border-radius:11px;padding:0 13px;background:#fff;outline:none}
+.field input:focus,.field select:focus{border-color:var(--lime)}
+.row2{display:flex;gap:10px}.row2 .field{flex:1}
+.marge-hint{font-size:12.5px;font-weight:700;color:#5C701A;background:#F0F4DC;border-radius:9px;padding:9px 12px;margin-bottom:13px;display:none}
+.btn{width:100%;height:52px;border-radius:13px;font-size:15.5px;font-weight:700;margin-top:6px}
+.btn-main{background:var(--noir);color:var(--lime)}
+.btn-sub{background:transparent;border:1.5px solid var(--ligne);color:var(--gris);margin-top:10px}
+.btn-danger{background:transparent;border:1.5px solid #E8C8C3;color:var(--rouge);margin-top:10px}
+.menu-item{display:flex;align-items:center;gap:12px;width:100%;padding:15px 6px;border-bottom:1px solid var(--ligne);font-size:15px;font-weight:600;text-align:left}
+.menu-item:last-child{border-bottom:none}
+.menu-item span:first-child{font-size:19px;width:26px;text-align:center}
+.menu-note{font-size:12px;color:var(--gris);padding:10px 6px 0;line-height:1.5}
+
+/* ===== Toast ===== */
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom));
+  background:var(--noir);color:var(--creme);padding:12px 16px;border-radius:12px;font-size:14px;font-weight:600;
+  display:none;align-items:center;gap:14px;z-index:50;box-shadow:0 6px 20px rgba(26,26,26,.35);max-width:calc(100vw - 32px)}
+#toast.show{display:flex}
+#toast button{color:var(--lime);font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-top">
+    <div class="h-title">Healthy Sounna<small>Gestion du stock</small></div>
+    <button id="btnMenu" aria-label="Menu">☰</button>
+  </div>
+  <div class="h-stats">
+    <div class="stat"><b id="stRefs">–</b><span>Références</span></div>
+    <div class="stat"><b id="stArts">–</b><span>Articles</span></div>
+    <div class="stat"><b id="stVal">–</b><span>Valeur</span></div>
+  </div>
+</header>
+
+<div class="tools">
+  <div class="search-row">
+    <input id="search" type="search" placeholder="Rechercher un produit, une marque…" autocomplete="off">
+    <button id="btnClear" aria-label="Effacer">✕</button>
+  </div>
+</div>
+
+<main id="list"></main>
+
+<button id="fab" aria-label="Ajouter un produit">+</button>
+
+<!-- Modale ajout / édition -->
+<div class="overlay" id="ovForm">
+  <div class="sheet">
+    <h2><span id="formTitle">Ajouter un produit</span><button data-close>✕</button></h2>
+    <div class="field"><label>Nom du produit *</label><input id="fName"></div>
+    <div class="row2">
+      <div class="field"><label>Catégorie</label><select id="fCat"></select></div>
+      <div class="field"><label>Marque</label><input id="fBrand" placeholder="Healthy Sounna"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Quantité *</label><input id="fQty" type="number" inputmode="numeric" min="0" step="1"></div>
+      <div class="field"><label>Prix vente (€)</label><input id="fPrice" type="number" inputmode="decimal" min="0" step="0.01"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Prix d'achat HT (€)</label><input id="fCost" type="number" inputmode="decimal" min="0" step="0.01" placeholder="optionnel"></div>
+      <div class="field"><label>DDM (ex : 06/2027)</label><input id="fDdm" placeholder="MM/AAAA"></div>
+    </div>
+    <div id="fMarge" class="marge-hint"></div>
+    <div class="field"><label>Note</label><input id="fNote"></div>
+    <button class="btn btn-main" id="btnSave">Enregistrer</button>
+    <button class="btn btn-danger" id="btnDelete" style="display:none">Supprimer ce produit</button>
+  </div>
+</div>
+
+<!-- Menu -->
+<div class="overlay" id="ovMenu">
+  <div class="sheet">
+    <h2>Menu<button data-close>✕</button></h2>
+    <button class="menu-item" id="mExportJson"><span>💾</span> Sauvegarde complète (JSON)</button>
+    <button class="menu-item" id="mExportCsv"><span>📄</span> Exporter en CSV (Excel)</button>
+    <button class="menu-item" id="mImport"><span>📥</span> Restaurer une sauvegarde</button>
+    <button class="menu-item" id="mReset"><span>♻️</span> Réinitialiser (inventaire de référence du 13/07/2026)</button>
+    <p class="menu-note">Conseil : fais une sauvegarde JSON régulièrement (une fois par semaine) et garde le fichier dans ton Drive ou WhatsApp. C'est ton filet de sécurité si tu changes de téléphone.<br><br>Outil offert par <b>Fervia</b> · v1.0</p>
+    <input type="file" id="fileImport" accept=".json" style="display:none">
+  </div>
+</div>
+
+<div id="toast"><span id="toastMsg"></span><button id="toastUndo">Annuler</button></div>
+
+<script src="./data.js"></script>
+<script src="./app.js"></script>
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('./sw.js').catch(function(){});
+}
+</script>
+</body>
+</html>
