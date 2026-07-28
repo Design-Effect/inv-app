@@ -193,10 +193,17 @@
     '</div>';
   }
 
-  function renderProducts(items, title, grouped, subtitle) {
-    var html = '<div class="backbar"><button data-back="1">← Catégories</button><h3>' + esc(title) +
+  function renderProducts(items, title, grouped, subtitle, sortable) {
+    var html = '<div class="backbar"><button data-back="1">← Retour</button><h3>' + esc(title) +
       ' <em>' + items.length + '</em></h3></div>';
     if (subtitle) html += '<div class="cat-stats">' + subtitle + '</div>';
+    if (sortable) {
+      html += '<div class="sort-row">';
+      [['nom', 'Nom'], ['stock', 'Stock ↑'], ['prix', 'Prix ↓'], ['marge', 'Marge ↓']].forEach(function (t) {
+        html += '<button class="sort-chip' + (catSort === t[0] ? ' on' : '') + '" data-sort="' + t[0] + '">' + t[1] + '</button>';
+      });
+      html += '</div>';
+    }
     if (!items.length) {
       html += '<div class="empty">Aucun produit trouvé.<br>Modifie ta recherche ou ajoute un produit avec le bouton +.</div>';
       listEl.innerHTML = html;
@@ -213,7 +220,7 @@
         groups[c].sort(byName).forEach(function (p) { html += cardHtml(p); });
       });
     } else {
-      items.sort(byName).forEach(function (p) { html += cardHtml(p); });
+      sortItems(items).forEach(function (p) { html += cardHtml(p); });
     }
     listEl.innerHTML = html;
   }
@@ -221,6 +228,37 @@
   function byName(a, b) { return norm(a.name).localeCompare(norm(b.name), 'fr'); }
 
   var salesPeriod = 'jour';
+  var catSort = 'nom';
+
+  function sortItems(items) {
+    var s = items.slice();
+    if (catSort === 'stock') s.sort(function (a, b) { return a.qty - b.qty || byName(a, b); });
+    else if (catSort === 'prix') s.sort(function (a, b) { return b.price - a.price || byName(a, b); });
+    else if (catSort === 'marge') s.sort(function (a, b) {
+      var ma = a.cost > 0 ? a.price - a.cost : -1, mb = b.cost > 0 ? b.price - b.cost : -1;
+      return mb - ma || byName(a, b);
+    });
+    else s.sort(byName);
+    return s;
+  }
+
+  function chartHtml() {
+    var days = [], max = 0;
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
+      var start = d.getTime(), end = start + 86400000, ca = 0;
+      state.sales.forEach(function (s) { if (s.t >= start && s.t < end) ca += s.price; });
+      days.push({ label: d.toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', ''), ca: ca });
+      if (ca > max) max = ca;
+    }
+    var bars = '';
+    days.forEach(function (d) {
+      var h = max > 0 ? Math.max(4, Math.round(d.ca / max * 68)) : 4;
+      bars += '<div class="bar-col"><div class="bar-val">' + (d.ca > 0 ? Math.round(d.ca) : '') + '</div>' +
+        '<div class="bar" style="height:' + h + 'px"></div><span>' + d.label + '</span></div>';
+    });
+    return '<div class="chart-card"><div class="chart-title">7 derniers jours · Chiffre d\u2019affaires (€)</div><div class="chart">' + bars + '</div></div>';
+  }
 
   function renderSales() {
     var now = Date.now();
@@ -238,6 +276,7 @@
       '<div class="s-kpi"><b>' + euro(st.ca) + '</b><span>Chiffre d\u2019affaires</span></div>' +
       '<div class="s-kpi lime"><b>' + (st.n ? euro(st.ben) : '—') + '</b><span>Bénéfice</span></div>' +
     '</div>';
+    html += chartHtml();
     if (st.sansPA) {
       html += '<div class="s-warn">⚠️ ' + st.sansPA + ' vente' + (st.sansPA > 1 ? 's' : '') +
         ' sans prix d\u2019achat renseigné — le bénéfice réel est plus élevé que le chiffre affiché.</div>';
@@ -274,7 +313,7 @@
       var items = state.products.filter(function (p) { return (p.cat || 'Divers') === state.cat; });
       var arts = 0, val = 0;
       items.forEach(function (p) { arts += p.qty; val += p.qty * p.price; });
-      renderProducts(items, state.cat, false, arts + ' articles en stock · Valeur : <b>' + euro(val) + '</b>');
+      renderProducts(items, state.cat, false, arts + ' articles en stock · Valeur : <b>' + euro(val) + '</b>', true);
     } else {
       renderHome();
     }
@@ -301,6 +340,7 @@
     undoSnapshot = { id: id, qty: p.qty, sale: null };
     p.qty = next;
     if (delta < 0) {
+      if (navigator.vibrate) navigator.vibrate(15);
       var sale = { t: Date.now(), id: p.id, name: p.name, price: p.price, cost: p.cost || 0 };
       state.sales.push(sale);
       undoSnapshot.sale = sale;
@@ -333,7 +373,7 @@
 
   /* ---------- Délégation clics ---------- */
   listEl.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-minus],[data-plus],[data-edit],[data-cat-open],[data-back],[data-alerts],[data-sales],[data-period],[data-delsale]');
+    var el = e.target.closest('[data-minus],[data-plus],[data-edit],[data-cat-open],[data-back],[data-alerts],[data-sales],[data-period],[data-delsale],[data-sort]');
     if (!el) return;
     if (el.dataset.minus) changeQty(el.dataset.minus, -1);
     else if (el.dataset.plus) changeQty(el.dataset.plus, +1);
@@ -343,16 +383,17 @@
     else if (el.dataset.alerts) { state.filterAlert = true; render(); window.scrollTo(0, 0); }
     else if (el.dataset.sales) { state.view = 'sales'; render(); window.scrollTo(0, 0); }
     else if (el.dataset.period) { salesPeriod = el.dataset.period; renderSales(); }
+    else if (el.dataset.sort) { catSort = el.dataset.sort; render(); }
     else if (el.dataset.delsale) {
       var parts = el.dataset.delsale.split('_');
-      for (var k = 0; k < state.sales.length; k++) {
-        if (String(state.sales[k].t) === parts[0] && state.sales[k].id === parts[1]) {
-          if (confirm('Supprimer cette vente du journal ?\n(Le stock ne sera pas modifié — utilise + si tu veux remettre l\u2019article en rayon.)')) {
-            state.sales.splice(k, 1); save(); renderSales();
+      dialog({ title: 'Supprimer cette vente ?', msg: 'Le stock ne sera pas modifié — utilise + si tu veux remettre l\u2019article en rayon.', danger: true, okLabel: 'Supprimer' })
+        .then(function (ok) {
+          if (!ok) return;
+          for (var k = 0; k < state.sales.length; k++) {
+            if (String(state.sales[k].t) === parts[0] && state.sales[k].id === parts[1]) { state.sales.splice(k, 1); break; }
           }
-          break;
-        }
-      }
+          save(); renderSales();
+        });
     }
   });
 
@@ -370,36 +411,66 @@
   /* ---------- Modales ---------- */
   function open(ov) { ov.classList.add('open'); }
   function close(ov) { ov.classList.remove('open'); }
-  document.querySelectorAll('.overlay').forEach(function (ov) {
+  document.querySelectorAll('.overlay:not(#ovDialog)').forEach(function (ov) {
     ov.addEventListener('click', function (e) {
       if (e.target === ov || e.target.hasAttribute('data-close')) close(ov);
     });
   });
 
+  /* ---------- Dialogue maison ---------- */
+  var ovDialog = $('ovDialog'), dlgResolve = null;
+  function dialog(o) {
+    return new Promise(function (resolve) {
+      dlgResolve = resolve;
+      $('dlgTitle').textContent = o.title || '';
+      $('dlgMsg').textContent = o.msg || '';
+      $('dlgMsg').style.display = o.msg ? 'block' : 'none';
+      var inp = $('dlgInput');
+      inp.style.display = o.input ? 'block' : 'none';
+      inp.value = o.value || '';
+      inp.placeholder = o.placeholder || '';
+      $('dlgOk').textContent = o.okLabel || 'Confirmer';
+      $('dlgOk').className = o.danger ? 'danger' : '';
+      $('dlgCancel').style.display = o.alert ? 'none' : 'block';
+      open(ovDialog);
+      if (o.input) setTimeout(function () { inp.focus(); }, 200);
+    });
+  }
+  function dlgClose(v) {
+    close(ovDialog);
+    if (dlgResolve) { var r = dlgResolve; dlgResolve = null; r(v); }
+  }
+  $('dlgOk').addEventListener('click', function () {
+    var inp = $('dlgInput');
+    dlgClose(inp.style.display !== 'none' ? inp.value.trim() : true);
+  });
+  $('dlgCancel').addEventListener('click', function () { dlgClose(null); });
+  ovDialog.addEventListener('click', function (e) { if (e.target === ovDialog) dlgClose(null); });
+
   var ovForm = $('ovForm'), ovMenu = $('ovMenu');
   $('btnMenu').addEventListener('click', function () { open(ovMenu); });
   $('fab').addEventListener('click', function () { openForm(null); });
 
-  function fillCatSelect(selected) {
-    var sel = $('fCat'), cats = allCats(), html = '';
-    cats.forEach(function (c) {
-      html += '<option' + (c === selected ? ' selected' : '') + '>' + esc(c) + '</option>';
+  var ovCat = $('ovCat'), formCat = '';
+  function setFormCat(c) { formCat = c; $('fCatVal').textContent = c; }
+  $('fCat').addEventListener('click', function () {
+    var html = '';
+    allCats().forEach(function (c) {
+      html += '<button class="cat-opt' + (c === formCat ? ' on' : '') + '" data-pickcat="' + esc(c) + '">' +
+        '<span class="co-ico">' + catEmoji(c) + '</span>' + esc(c) + (c === formCat ? ' ✓' : '') + '</button>';
     });
-    html += '<option value="__new__">➕ Nouvelle catégorie…</option>';
-    sel.innerHTML = html;
-  }
-
-  $('fCat').addEventListener('change', function () {
-    if (this.value === '__new__') {
-      var name = prompt('Nom de la nouvelle catégorie :');
-      if (name && name.trim()) {
-        var opt = document.createElement('option');
-        opt.textContent = name.trim();
-        this.insertBefore(opt, this.lastElementChild);
-        this.value = name.trim();
-      } else {
-        this.selectedIndex = 0;
-      }
+    html += '<button class="cat-opt" data-newcat="1"><span class="co-ico">➕</span>Nouvelle catégorie…</button>';
+    $('catList').innerHTML = html;
+    open(ovCat);
+  });
+  $('catList').addEventListener('click', function (e) {
+    var el = e.target.closest('[data-pickcat],[data-newcat]');
+    if (!el) return;
+    if (el.dataset.pickcat) { setFormCat(el.dataset.pickcat); close(ovCat); }
+    else {
+      close(ovCat);
+      dialog({ title: 'Nouvelle catégorie', input: true, placeholder: 'Nom de la catégorie', okLabel: 'Créer' })
+        .then(function (name) { if (name) setFormCat(name); });
     }
   });
 
@@ -408,7 +479,7 @@
     var p = id ? findP(id) : null;
     $('formTitle').textContent = p ? 'Modifier le produit' : 'Ajouter un produit';
     $('btnDelete').style.display = p ? 'block' : 'none';
-    fillCatSelect(p ? p.cat : (state.view === 'cat' && state.cat ? state.cat : undefined));
+    setFormCat(p ? p.cat : (state.view === 'cat' && state.cat ? state.cat : allCats()[0]));
     $('fName').value = p ? p.name : '';
     $('fBrand').value = p ? p.brand : '';
     $('fQty').value = p ? p.qty : '';
@@ -440,14 +511,14 @@
   $('btnSave').addEventListener('click', function () {
     var name = $('fName').value.trim();
     var qty = parseInt($('fQty').value, 10);
-    if (!name) { alert('Le nom du produit est obligatoire.'); return; }
-    if (isNaN(qty) || qty < 0) { alert('Quantité invalide.'); return; }
+    if (!name) { dialog({ title: 'Nom manquant', msg: 'Le nom du produit est obligatoire.', alert: true, okLabel: 'OK' }); return; }
+    if (isNaN(qty) || qty < 0) { dialog({ title: 'Quantité invalide', msg: 'Indique une quantité valide (0 ou plus).', alert: true, okLabel: 'OK' }); return; }
     var price = parseFloat(($('fPrice').value || '0').replace(',', '.'));
     if (isNaN(price) || price < 0) price = 0;
     var cost = parseFloat(($('fCost').value || '0').replace(',', '.'));
     if (isNaN(cost) || cost < 0) cost = 0;
     var data = {
-      cat: $('fCat').value === '__new__' ? 'Divers' : $('fCat').value,
+      cat: formCat || 'Divers',
       name: name,
       brand: $('fBrand').value.trim(),
       qty: qty,
@@ -469,10 +540,12 @@
   $('btnDelete').addEventListener('click', function () {
     var p = findP(editingId);
     if (!p) return;
-    if (confirm('Supprimer définitivement « ' + p.name + ' » ?')) {
-      state.products = state.products.filter(function (x) { return x.id !== editingId; });
-      save(); render(); close(ovForm);
-    }
+    dialog({ title: 'Supprimer le produit ?', msg: '« ' + p.name + ' » sera retiré définitivement du stock.', danger: true, okLabel: 'Supprimer' })
+      .then(function (ok) {
+        if (!ok) return;
+        state.products = state.products.filter(function (x) { return x.id !== editingId; });
+        save(); render(); close(ovForm);
+      });
   });
 
   /* ---------- Export / Import / Reset ---------- */
@@ -494,7 +567,7 @@
 
   $('mExportJson').addEventListener('click', function () {
     download('healthy-sounna-stock-' + stamp() + '.json',
-      JSON.stringify({ v: 1, savedAt: new Date().toISOString(), products: state.products }, null, 1),
+      JSON.stringify({ v: 1, savedAt: new Date().toISOString(), products: state.products, sales: state.sales }, null, 1),
       'application/json');
     close(ovMenu);
   });
@@ -541,23 +614,35 @@
       try {
         var d = JSON.parse(reader.result);
         if (!d || !d.products || !d.products.length) throw new Error('vide');
-        if (!confirm('Remplacer le stock actuel par cette sauvegarde (' + d.products.length + ' produits) ?')) return;
-        state.products = d.products.map(function (p) {
-          return { id: p.id || uid(), cat: p.cat || 'Divers', name: p.name || '?', brand: p.brand || '',
-                   qty: Math.max(0, parseInt(p.qty, 10) || 0), price: parseFloat(p.price) || 0, cost: parseFloat(p.cost) || 0,
-                   ddm: p.ddm || '', note: p.note || '' };
-        });
-        state.sales = (d.sales || []).filter(function (s) { return s && s.t && s.name; });
-        save(); render(); close(ovMenu);
-      } catch (e) { alert('Fichier invalide. Utilise une sauvegarde JSON exportée depuis cette application.'); }
+        dialog({ title: 'Restaurer la sauvegarde ?', msg: 'Le stock actuel sera remplacé par cette sauvegarde (' + d.products.length + ' produits).', okLabel: 'Restaurer' })
+          .then(function (ok) {
+            if (!ok) return;
+            state.products = d.products.map(function (p) {
+              return { id: p.id || uid(), cat: p.cat || 'Divers', name: p.name || '?', brand: p.brand || '',
+                       qty: Math.max(0, parseInt(p.qty, 10) || 0), price: parseFloat(p.price) || 0, cost: parseFloat(p.cost) || 0,
+                       ddm: p.ddm || '', note: p.note || '' };
+            });
+            state.sales = (d.sales || []).filter(function (s) { return s && s.t && s.name; });
+            save(); render(); close(ovMenu);
+          });
+      } catch (e) { dialog({ title: 'Fichier invalide', msg: 'Utilise une sauvegarde JSON exportée depuis cette application.', alert: true, okLabel: 'OK' }); }
     };
     reader.readAsText(f);
     this.value = '';
   });
 
   $('mReset').addEventListener('click', function () {
-    if (confirm('Tout remplacer par l\u2019inventaire de référence du 13/07/2026 (recomptage gélules inclus) ?\nLes modifications actuelles seront perdues (pense à exporter avant).')) {
-      seed(); goHome(); close(ovMenu);
+    close(ovMenu);
+    dialog({ title: 'Réinitialiser ?', msg: 'L\u2019inventaire de référence du 13/07/2026 sera restauré. Les modifications actuelles seront perdues (pense à exporter avant).', danger: true, okLabel: 'Réinitialiser' })
+      .then(function (ok) { if (ok) { seed(); goHome(); } });
+  });
+
+  /* ---------- Clavier : garder le champ actif visible ---------- */
+  document.addEventListener('focusin', function (e) {
+    if (e.target.matches('input, select, textarea')) {
+      setTimeout(function () {
+        try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {}
+      }, 260);
     }
   });
 

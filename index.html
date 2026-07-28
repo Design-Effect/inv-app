@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Healthy Sounna — Stock</title>
 <meta name="description" content="Gestion de l'inventaire Healthy Sounna">
 <meta name="theme-color" content="#1A1A1A">
@@ -118,7 +118,43 @@ main{padding:6px 16px 90px}
 .s-info{flex:1;min-width:0}
 .s-name{font-weight:600;font-size:13.5px}
 .s-meta{font-size:11.5px;color:var(--gris);margin-top:2px}
-.s-del{width:36px;height:36px;border-radius:9px;background:#FBEAE7;color:var(--rouge);font-size:14px;font-weight:700;flex-shrink:0}
+.s-del{width:44px;height:44px;border-radius:11px;background:#FBEAE7;color:var(--rouge);font-size:15px;font-weight:700;flex-shrink:0}
+
+
+/* ===== Sélecteur catégorie maison ===== */
+.selectlike{width:100%;height:48px;border:1.5px solid var(--ligne);border-radius:11px;padding:0 13px;background:#fff;
+  color:var(--noir);display:flex;align-items:center;justify-content:space-between;font-size:15px;text-align:left}
+.selectlike em{font-style:normal;color:#5C701A;font-size:13px}
+.cat-opt{display:flex;align-items:center;gap:12px;width:100%;padding:15px 6px;border-bottom:1px solid var(--ligne);font-size:15px;font-weight:600;text-align:left}
+.cat-opt:last-child{border-bottom:none}
+.cat-opt.on{color:#5C701A}
+.cat-opt .co-ico{font-size:18px;width:26px;text-align:center}
+/* ===== Dialogue maison ===== */
+.overlay.center{align-items:center}
+.dialog{background:#fff;border-radius:18px;padding:22px 20px 18px;width:calc(100% - 48px);max-width:340px;
+  box-shadow:0 20px 60px rgba(26,26,26,.35);animation:up .18s ease}
+.dialog h3{font-size:17px;font-weight:800;margin-bottom:8px}
+.dialog p{font-size:13.5px;color:#555;line-height:1.5;margin-bottom:14px}
+.dialog input{width:100%;height:48px;border:1.5px solid var(--ligne);border-radius:11px;padding:0 13px;background:#fff;
+  color:var(--noir);outline:none;margin-bottom:14px;display:none}
+.dialog input:focus{border-color:var(--lime)}
+.dlg-btns{display:flex;gap:9px}
+.dlg-btns button{flex:1;height:48px;border-radius:12px;font-size:14.5px;font-weight:700}
+#dlgCancel{border:1.5px solid var(--ligne);color:var(--gris);background:transparent}
+#dlgOk{background:var(--noir);color:var(--lime)}
+#dlgOk.danger{background:var(--rouge);color:#FBEAE7}
+/* ===== Graphique 7 jours ===== */
+.chart-card{background:var(--noir);border-radius:var(--radius);padding:14px 14px 10px;margin-bottom:12px}
+.chart-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:rgba(250,246,236,.65);font-weight:700;margin-bottom:10px}
+.chart{display:flex;align-items:flex-end;gap:7px;height:100px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
+.bar-val{font-size:9px;color:var(--lime);font-weight:700;font-variant-numeric:tabular-nums}
+.bar{width:100%;max-width:30px;background:linear-gradient(180deg,#C3D96C,var(--lime));border-radius:5px 5px 2px 2px;min-height:4px}
+.bar-col span{font-size:9.5px;color:rgba(250,246,236,.55);text-transform:capitalize}
+/* ===== Tri catégorie ===== */
+.sort-row{display:flex;gap:6px;margin:0 0 12px}
+.sort-chip{flex:1;padding:8px 4px;border-radius:9px;border:1.5px solid var(--ligne);background:#fff;font-size:11.5px;font-weight:700;color:var(--gris)}
+.sort-chip.on{background:var(--noir);border-color:var(--noir);color:var(--lime)}
 
 /* ===== FAB ===== */
 #fab{position:fixed;right:18px;bottom:calc(20px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:18px;
@@ -188,7 +224,7 @@ main{padding:6px 16px 90px}
     <h2><span id="formTitle">Ajouter un produit</span><button data-close>✕</button></h2>
     <div class="field"><label>Nom du produit *</label><input id="fName"></div>
     <div class="row2">
-      <div class="field"><label>Catégorie</label><select id="fCat"></select></div>
+      <div class="field"><label>Catégorie</label><button type="button" class="selectlike" id="fCat"><span id="fCatVal">—</span><em>▾</em></button></div>
       <div class="field"><label>Marque</label><input id="fBrand" placeholder="Healthy Sounna"></div>
     </div>
     <div class="row2">
@@ -217,6 +253,27 @@ main{padding:6px 16px 90px}
     <button class="menu-item" id="mReset"><span>♻️</span> Réinitialiser (inventaire de référence du 13/07/2026)</button>
     <p class="menu-note">Conseil : fais une sauvegarde JSON régulièrement (une fois par semaine) et garde le fichier dans ton Drive ou WhatsApp. C'est ton filet de sécurité si tu changes de téléphone.<br><br>Outil offert par <b>Fervia</b> · v1.0</p>
     <input type="file" id="fileImport" accept=".json" style="display:none">
+  </div>
+</div>
+
+<!-- Feuille choix catégorie -->
+<div class="overlay" id="ovCat">
+  <div class="sheet">
+    <h2>Catégorie<button data-close>✕</button></h2>
+    <div id="catList"></div>
+  </div>
+</div>
+
+<!-- Dialogue maison -->
+<div class="overlay center" id="ovDialog">
+  <div class="dialog">
+    <h3 id="dlgTitle"></h3>
+    <p id="dlgMsg"></p>
+    <input id="dlgInput" autocomplete="off">
+    <div class="dlg-btns">
+      <button id="dlgCancel">Annuler</button>
+      <button id="dlgOk">Confirmer</button>
+    </div>
   </div>
 </div>
 
