@@ -86,6 +86,8 @@ main{padding:6px 16px 90px}
 .b-ddm{background:#FBEAE7;color:var(--rouge)}
 .b-ddmsoon{background:#FDF2E3;color:var(--ambre)}
 .b-dup{background:#F0F4DC;color:#5C701A}
+.b-promo{background:var(--noir);color:var(--lime)}
+.p-meta s,.s-meta s{color:#A8A390;text-decoration:line-through;font-weight:400}
 .qty-box{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0}
 .qty-val{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;min-width:34px;text-align:center}
 .qty-btns{display:flex;gap:8px}
@@ -232,9 +234,10 @@ main{padding:6px 16px 90px}
       <div class="field"><label>Prix vente (€)</label><input id="fPrice" type="number" inputmode="decimal" min="0" step="0.01"></div>
     </div>
     <div class="row2">
+      <div class="field"><label>Prix promo (€)</label><input id="fPromo" type="number" inputmode="decimal" min="0" step="0.01" placeholder="aucune"></div>
       <div class="field"><label>Prix d'achat HT (€)</label><input id="fCost" type="number" inputmode="decimal" min="0" step="0.01" placeholder="optionnel"></div>
-      <div class="field"><label>DDM (ex : 06/2027)</label><input id="fDdm" placeholder="MM/AAAA"></div>
     </div>
+    <div class="field"><label>DDM (ex : 06/2027)</label><input id="fDdm" placeholder="MM/AAAA"></div>
     <div id="fMarge" class="marge-hint"></div>
     <div class="field"><label>Note</label><input id="fNote"></div>
     <button class="btn btn-main" id="btnSave">Enregistrer</button>

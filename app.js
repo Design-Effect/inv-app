@@ -35,7 +35,7 @@
 
   function seed() {
     state.products = SEED_DATA.map(function (p) {
-      return { id: uid(), cat: p.cat, name: p.name, brand: p.brand, qty: p.qty, price: p.price, cost: p.cost || 0, ddm: p.ddm, note: p.note };
+      return { id: uid(), cat: p.cat, name: p.name, brand: p.brand, qty: p.qty, price: p.price, cost: p.cost || 0, promo: p.promo || 0, ddm: p.ddm, note: p.note };
     });
     state.sales = [];
     save();
@@ -58,6 +58,14 @@
   function esc(s) {
     return (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+
+  /* Prix réellement pratiqué : la promo ne s'applique que si elle est
+     renseignée et inférieure au prix normal. */
+  function effPrice(p) {
+    return (p.promo > 0 && p.promo < p.price) ? p.promo : p.price;
+  }
+
+  function enPromo(p) { return effPrice(p) !== p.price; }
 
   /* Analyse DDM : 'MM/AAAA' ou 'JJ/MM/AAAA' → statut */
   function ddmStatus(ddm) {
@@ -167,6 +175,7 @@
     var d = ddmStatus(p.ddm);
     if (d === 'past') b += '<span class="badge b-ddm">DDM dépassée</span>';
     else if (d === 'soon') b += '<span class="badge b-ddmsoon">DDM proche</span>';
+    if (enPromo(p)) b += '<span class="badge b-promo">Promo</span>';
     if (/DOUBLON/i.test(p.note || '')) b += '<span class="badge b-dup">À vérifier</span>';
     return b ? '<div class="badges">' + b + '</div>' : '';
   }
@@ -174,7 +183,8 @@
   function cardHtml(p) {
     var meta = [];
     if (p.brand) meta.push(esc(p.brand));
-    meta.push('<b>' + euro(p.price) + '</b>');
+    if (enPromo(p)) meta.push('<s>' + euro(p.price) + '</s> <b>' + euro(p.promo) + '</b>');
+    else meta.push('<b>' + euro(p.price) + '</b>');
     if (p.cost) meta.push('<span class="pa">PA ' + euro(p.cost) + '</span>');
     if (p.ddm) meta.push('DDM ' + esc(p.ddm));
     return '<div class="card' + (p.qty === 0 ? ' zero' : '') + '">' +
@@ -233,9 +243,9 @@
   function sortItems(items) {
     var s = items.slice();
     if (catSort === 'stock') s.sort(function (a, b) { return a.qty - b.qty || byName(a, b); });
-    else if (catSort === 'prix') s.sort(function (a, b) { return b.price - a.price || byName(a, b); });
+    else if (catSort === 'prix') s.sort(function (a, b) { return effPrice(b) - effPrice(a) || byName(a, b); });
     else if (catSort === 'marge') s.sort(function (a, b) {
-      var ma = a.cost > 0 ? a.price - a.cost : -1, mb = b.cost > 0 ? b.price - b.cost : -1;
+      var ma = a.cost > 0 ? effPrice(a) - a.cost : -1, mb = b.cost > 0 ? effPrice(b) - b.cost : -1;
       return mb - ma || byName(a, b);
     });
     else s.sort(byName);
@@ -290,7 +300,8 @@
         function z(n) { return (n < 10 ? '0' : '') + n; }
         var when = z(d.getDate()) + '/' + z(d.getMonth() + 1) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
         html += '<div class="s-row"><div class="s-info"><div class="s-name">' + esc(s.name) + '</div>' +
-          '<div class="s-meta">' + when + ' · ' + euro(s.price) + (s.cost > 0 ? ' · bénéf ' + euro(s.price - s.cost) : ' · PA non renseigné') + '</div></div>' +
+          '<div class="s-meta">' + when + ' · ' + euro(s.price) + (s.full ? ' <s>' + euro(s.full) + '</s>' : '') +
+          (s.cost > 0 ? ' · bénéf ' + euro(s.price - s.cost) : ' · PA non renseigné') + '</div></div>' +
           '<button class="s-del" data-delsale="' + s.t + '_' + s.id + '">✕</button></div>';
       });
     }
@@ -339,14 +350,16 @@
     if (next < 0) return;
     undoSnapshot = { id: id, qty: p.qty, sale: null };
     p.qty = next;
+    var eff = effPrice(p);
     if (delta < 0) {
       if (navigator.vibrate) navigator.vibrate(15);
-      var sale = { t: Date.now(), id: p.id, name: p.name, price: p.price, cost: p.cost || 0 };
+      var sale = { t: Date.now(), id: p.id, name: p.name, price: eff, cost: p.cost || 0 };
+      if (eff !== p.price) sale.full = p.price;
       state.sales.push(sale);
       undoSnapshot.sale = sale;
     }
     save(); render();
-    showToast(delta < 0 ? ('Vente · ' + p.name + ' · ' + euro(p.price)) : ('+1 · ' + p.name + ' → ' + p.qty));
+    showToast(delta < 0 ? ('Vente · ' + p.name + ' · ' + euro(eff) + (eff !== p.price ? ' (promo)' : '')) : ('+1 · ' + p.name + ' → ' + p.qty));
   }
 
   function showToast(msg) {
@@ -484,6 +497,7 @@
     $('fBrand').value = p ? p.brand : '';
     $('fQty').value = p ? p.qty : '';
     $('fPrice').value = p ? p.price : '';
+    $('fPromo').value = (p && p.promo) ? p.promo : '';
     $('fCost').value = (p && p.cost) ? p.cost : '';
     $('fDdm').value = p ? p.ddm : '';
     $('fNote').value = p ? p.note : '';
@@ -494,18 +508,28 @@
 
   function updateMarge() {
     var pv = parseFloat(($('fPrice').value || '').replace(',', '.'));
+    var pp = parseFloat(($('fPromo').value || '').replace(',', '.'));
     var pa = parseFloat(($('fCost').value || '').replace(',', '.'));
     var el = $('fMarge');
+    var promo = pp > 0 && pv > 0 && pp < pv;
+    if (pp > 0 && pv > 0 && pp >= pv) {
+      el.textContent = '⚠️ Le prix promo doit être inférieur au prix de vente, sinon il sera ignoré.';
+      el.style.display = 'block';
+      return;
+    }
     if (pv > 0 && pa > 0) {
-      var m = pv - pa;
-      var pct = Math.round((m / pv) * 100);
-      el.textContent = 'Marge : ' + euro(m) + ' (' + pct + ' % du prix de vente)';
+      var base = promo ? pp : pv;
+      var m = base - pa;
+      var pct = Math.round((m / base) * 100);
+      el.textContent = (promo ? 'Marge promo : ' : 'Marge : ') + euro(m) + ' (' + pct + ' % du prix de vente' +
+        (promo ? ' promo, au lieu de ' + euro(pv - pa) + ' au prix normal' : '') + ')';
       el.style.display = 'block';
     } else {
       el.style.display = 'none';
     }
   }
   $('fPrice').addEventListener('input', updateMarge);
+  $('fPromo').addEventListener('input', updateMarge);
   $('fCost').addEventListener('input', updateMarge);
 
   $('btnSave').addEventListener('click', function () {
@@ -517,6 +541,8 @@
     if (isNaN(price) || price < 0) price = 0;
     var cost = parseFloat(($('fCost').value || '0').replace(',', '.'));
     if (isNaN(cost) || cost < 0) cost = 0;
+    var promo = parseFloat(($('fPromo').value || '0').replace(',', '.'));
+    if (isNaN(promo) || promo < 0) promo = 0;
     var data = {
       cat: formCat || 'Divers',
       name: name,
@@ -524,6 +550,7 @@
       qty: qty,
       price: price,
       cost: cost,
+      promo: promo,
       ddm: $('fDdm').value.trim(),
       note: $('fNote').value.trim()
     };
@@ -573,11 +600,12 @@
   });
 
   $('mExportCsv').addEventListener('click', function () {
-    var rows = [['Catégorie', 'Produit', 'Marque', 'Qté', 'Prix achat HT €', 'Prix vente €', 'Valeur vente €', 'DDM', 'Notes']];
+    var rows = [['Catégorie', 'Produit', 'Marque', 'Qté', 'Prix achat HT €', 'Prix vente €', 'Prix promo €', 'Valeur vente €', 'DDM', 'Notes']];
     state.products.forEach(function (p) {
       rows.push([p.cat, p.name, p.brand, p.qty,
         (p.cost ? p.cost.toFixed(2).replace('.', ',') : ''),
         p.price.toFixed(2).replace('.', ','),
+        (enPromo(p) ? p.promo.toFixed(2).replace('.', ',') : ''),
         (p.qty * p.price).toFixed(2).replace('.', ','),
         p.ddm, p.note]);
     });
@@ -589,12 +617,13 @@
   });
 
   $('mExportVentes').addEventListener('click', function () {
-    var rows = [['Date', 'Heure', 'Produit', 'Prix vente €', 'Prix achat €', 'Bénéfice €']];
+    var rows = [['Date', 'Heure', 'Produit', 'Prix vente €', 'Prix normal €', 'Prix achat €', 'Bénéfice €']];
     state.sales.forEach(function (s) {
       var d = new Date(s.t);
       function z(n) { return (n < 10 ? '0' : '') + n; }
       rows.push([z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear(), z(d.getHours()) + ':' + z(d.getMinutes()),
         s.name, s.price.toFixed(2).replace('.', ','),
+        (s.full ? s.full.toFixed(2).replace('.', ',') : ''),
         (s.cost > 0 ? s.cost.toFixed(2).replace('.', ',') : ''),
         (s.cost > 0 ? (s.price - s.cost).toFixed(2).replace('.', ',') : '')]);
     });
@@ -620,7 +649,7 @@
             state.products = d.products.map(function (p) {
               return { id: p.id || uid(), cat: p.cat || 'Divers', name: p.name || '?', brand: p.brand || '',
                        qty: Math.max(0, parseInt(p.qty, 10) || 0), price: parseFloat(p.price) || 0, cost: parseFloat(p.cost) || 0,
-                       ddm: p.ddm || '', note: p.note || '' };
+                       promo: parseFloat(p.promo) || 0, ddm: p.ddm || '', note: p.note || '' };
             });
             state.sales = (d.sales || []).filter(function (s) { return s && s.t && s.name; });
             save(); render(); close(ovMenu);
