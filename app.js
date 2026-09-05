@@ -203,9 +203,11 @@
     '</div>';
   }
 
-  function renderProducts(items, title, grouped, subtitle, sortable) {
+  function renderProducts(items, title, grouped, subtitle, sortable, catDelete) {
     var html = '<div class="backbar"><button data-back="1">← Retour</button><h3>' + esc(title) +
-      ' <em>' + items.length + '</em></h3></div>';
+      ' <em>' + items.length + '</em></h3>' +
+      (catDelete ? '<button class="backbar-del" data-delcat="1" title="Supprimer la catégorie">🗑️</button>' : '') +
+      '</div>';
     if (subtitle) html += '<div class="cat-stats">' + subtitle + '</div>';
     if (sortable) {
       html += '<div class="sort-row">';
@@ -324,7 +326,7 @@
       var items = state.products.filter(function (p) { return (p.cat || 'Divers') === state.cat; });
       var arts = 0, val = 0;
       items.forEach(function (p) { arts += p.qty; val += p.qty * p.price; });
-      renderProducts(items, state.cat, false, arts + ' articles en stock · Valeur : <b>' + euro(val) + '</b>', true);
+      renderProducts(items, state.cat, false, arts + ' articles en stock · Valeur : <b>' + euro(val) + '</b>', true, true);
     } else {
       renderHome();
     }
@@ -386,7 +388,7 @@
 
   /* ---------- Délégation clics ---------- */
   listEl.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-minus],[data-plus],[data-edit],[data-cat-open],[data-back],[data-alerts],[data-sales],[data-period],[data-delsale],[data-sort]');
+    var el = e.target.closest('[data-minus],[data-plus],[data-edit],[data-cat-open],[data-back],[data-alerts],[data-sales],[data-period],[data-delsale],[data-sort],[data-delcat]');
     if (!el) return;
     if (el.dataset.minus) changeQty(el.dataset.minus, -1);
     else if (el.dataset.plus) changeQty(el.dataset.plus, +1);
@@ -406,6 +408,18 @@
             if (String(state.sales[k].t) === parts[0] && state.sales[k].id === parts[1]) { state.sales.splice(k, 1); break; }
           }
           save(); renderSales();
+        });
+    }
+    else if (el.dataset.delcat) {
+      var cat = state.cat;
+      var items = state.products.filter(function (p) { return (p.cat || 'Divers') === cat; });
+      var arts = 0;
+      items.forEach(function (p) { arts += p.qty; });
+      dialog({ title: 'Supprimer cette catégorie ?', msg: 'Les ' + items.length + ' références de « ' + cat + ' » (' + arts + ' articles) seront supprimées définitivement. Cette action est irréversible.', danger: true, okLabel: 'Supprimer' })
+        .then(function (ok) {
+          if (!ok) return;
+          state.products = state.products.filter(function (p) { return (p.cat || 'Divers') !== cat; });
+          save(); goHome();
         });
     }
   });
