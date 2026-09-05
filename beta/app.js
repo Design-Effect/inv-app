@@ -674,6 +674,15 @@
       if (photoForm === '') data.img = '';
       else data.img = photoForm;
     }
+    /* Les photos du catalogue sont reliees au NOM du produit. Renommer un produit
+       lui faisait donc perdre son image, sans rien dire. Quand le nom change, on
+       epingle l'image sur le produit lui-meme pour qu'elle survive. */
+    var avantEdition = editingId ? findP(editingId) : null;
+    if (photoForm === null && avantEdition && !avantEdition.img &&
+        normPhoto(avantEdition.name) !== normPhoto(data.name)) {
+      var heritee = photoDe(avantEdition);
+      if (heritee) data.img = heritee;
+    }
     var cible;
     if (editingId) {
       cible = findP(editingId);
