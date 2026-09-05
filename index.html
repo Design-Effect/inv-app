@@ -99,6 +99,20 @@ main{padding:6px 16px 90px}
 .qb.plus{background:var(--lime);color:var(--noir)}
 .qb:disabled{opacity:.3}
 .empty{text-align:center;color:var(--gris);padding:50px 20px;font-size:14.5px}
+/* ===== Vignettes produit (packshots du catalogue) ===== */
+.vign{width:58px;height:58px;flex-shrink:0;border-radius:9px;background:#F6F1E4;object-fit:contain;padding:3px}
+.vign-vide{display:flex;align-items:center;justify-content:center;font-size:23px;color:#C8C0AA}
+/* ===== Affichage en deux colonnes ===== */
+.grille2{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:start}
+.grille2 .card{flex-direction:column;align-items:stretch;text-align:center;padding:10px;margin-bottom:0;gap:8px}
+.grille2 .vign{width:100%;height:104px;padding:6px}
+.grille2 .p-info{flex:none}
+.grille2 .p-name{font-size:13px}
+.grille2 .p-meta{font-size:11.5px;margin-top:2px}
+.grille2 .badges{justify-content:center;gap:4px}
+.grille2 .badge{font-size:9.5px;padding:2px 6px}
+.grille2 .qty-box{flex-direction:row;justify-content:center;align-items:center;gap:10px}
+.grille2 .qb{width:42px;height:42px;font-size:22px}
 
 
 /* ===== Recettes ===== */
@@ -250,6 +264,8 @@ main{padding:6px 16px 90px}
 <div class="overlay" id="ovMenu">
   <div class="sheet">
     <h2>Menu<button data-close>✕</button></h2>
+    <button class="menu-item" id="mColonnes"><span>🖼️</span> <span id="mColonnesTexte">Affichage : 1 colonne</span></button>
+    <button class="menu-item" id="mFusion"><span>➕</span> Ajouter les nouveaux produits du catalogue</button>
     <button class="menu-item" id="mExportJson"><span>💾</span> Sauvegarde complète (JSON)</button>
     <button class="menu-item" id="mExportCsv"><span>📄</span> Exporter le stock (CSV)</button>
     <button class="menu-item" id="mExportVentes"><span>💰</span> Exporter les ventes (CSV)</button>
@@ -285,6 +301,7 @@ main{padding:6px 16px 90px}
 <div id="toast"><span id="toastMsg"></span><button id="toastUndo">Annuler</button></div>
 
 <script src="./data.js"></script>
+<script src="./photos.js"></script>
 <script src="./app.js"></script>
 <script>
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

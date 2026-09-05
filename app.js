@@ -55,6 +55,18 @@
     return (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 
+  /* Cle des photos : meme normalisation que le script qui a genere photos.js
+     (minuscules, sans accents, tout ce qui n'est pas alphanumerique -> espace). */
+  function normPhoto(s) {
+    return (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  function photoDe(p) {
+    var f = (typeof PHOTOS !== 'undefined') ? PHOTOS[normPhoto(p.name)] : null;
+    return f ? 'img/' + f : null;
+  }
+
   function esc(s) {
     return (s || '').toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
@@ -187,7 +199,11 @@
     else meta.push('<b>' + euro(p.price) + '</b>');
     if (p.cost) meta.push('<span class="pa">PA ' + euro(p.cost) + '</span>');
     if (p.ddm) meta.push('DDM ' + esc(p.ddm));
-    return '<div class="card' + (p.qty === 0 ? ' zero' : '') + '">' +
+    var photo = photoDe(p);
+    var vign = photo
+      ? '<img class="vign" src="' + esc(photo) + '" alt="" loading="lazy">'
+      : '<div class="vign vign-vide">' + catEmoji(p.cat) + '</div>';
+    return '<div class="card' + (p.qty === 0 ? ' zero' : '') + '">' + vign +
       '<div class="p-info" data-edit="' + p.id + '">' +
         '<div class="p-name">' + esc(p.name) + ' <span class="edit-hint">✎</span></div>' +
         '<div class="p-meta">' + meta.join(' · ') + '</div>' +
@@ -229,10 +245,14 @@
       });
       Object.keys(groups).sort(function (a, b) { return a.localeCompare(b, 'fr'); }).forEach(function (c) {
         html += '<div class="cat-head"><span>' + esc(c) + '</span><em>' + groups[c].length + ' réf.</em></div>';
+        html += '<div class="' + classeGrille() + '">';
         groups[c].sort(byName).forEach(function (p) { html += cardHtml(p); });
+        html += '</div>';
       });
     } else {
+      html += '<div class="' + classeGrille() + '">';
       sortItems(items).forEach(function (p) { html += cardHtml(p); });
+      html += '</div>';
     }
     listEl.innerHTML = html;
   }
@@ -241,6 +261,10 @@
 
   var salesPeriod = 'jour';
   var catSort = 'nom';
+  var CLE_COLONNES = 'hs_colonnes';
+  var colonnes = (storage.get(CLE_COLONNES) === '2') ? 2 : 1;
+
+  function classeGrille() { return colonnes === 2 ? 'grille2' : 'liste1'; }
 
   function sortItems(items) {
     var s = items.slice();
@@ -691,6 +715,45 @@
       .then(function (ok) { if (ok) zeroStock(); });
   });
 
+  /* ---------- Affichage 1 / 2 colonnes ---------- */
+  function peindreLibelleColonnes() {
+    var el = $('mColonnesTexte');
+    if (el) el.textContent = 'Affichage : ' + (colonnes === 2 ? '2 colonnes' : '1 colonne');
+  }
+
+  $('mColonnes').addEventListener('click', function () {
+    colonnes = (colonnes === 2) ? 1 : 2;
+    storage.set(CLE_COLONNES, String(colonnes));
+    peindreLibelleColonnes();
+    render();
+  });
+
+  /* ---------- Ajouter les produits du catalogue absents du stock ----------
+     Ajoute sans rien ecraser : les quantites deja comptees ne bougent pas.
+     C'est ce qui permet de recevoir de nouveaux produits sans passer par
+     « Reinitialiser », qui lui remet tout l'inventaire a son etat de reference. */
+  $('mFusion').addEventListener('click', function () {
+    close(ovMenu);
+    var connus = {};
+    state.products.forEach(function (p) { connus[normPhoto(p.name)] = true; });
+    var ajouts = SEED_DATA.filter(function (p) { return !connus[normPhoto(p.name)]; });
+    if (!ajouts.length) {
+      dialog({ title: 'Rien à ajouter', msg: 'Tous les produits du catalogue sont déjà dans ton stock.', alert: true, okLabel: 'OK' });
+      return;
+    }
+    dialog({ title: ajouts.length + ' produit' + (ajouts.length > 1 ? 's' : '') + ' à ajouter ?',
+             msg: 'Ils arriveront avec une quantité de 0, prêts à être comptés. Tes quantités actuelles ne changent pas.',
+             okLabel: 'Ajouter' })
+      .then(function (ok) {
+        if (!ok) return;
+        ajouts.forEach(function (p) {
+          state.products.push({ id: uid(), cat: p.cat, name: p.name, brand: p.brand, qty: 0,
+                                price: p.price, cost: p.cost || 0, promo: p.promo || 0, ddm: p.ddm, note: p.note });
+        });
+        save(); goHome();
+      });
+  });
+
   /* ---------- Clavier : garder le champ actif visible ---------- */
   document.addEventListener('focusin', function (e) {
     if (e.target.matches('input, select, textarea')) {
@@ -701,6 +764,20 @@
   });
 
   /* ---------- Démarrage ---------- */
+  /* Filet posé le 05/09/2026, avec la mise a jour qui importe le catalogue :
+     Younes etant en voyage, il ne pouvait pas exporter sa sauvegarde avant.
+     On garde donc une copie de son etat au premier lancement de cette version,
+     sous une cle a part, ecrite UNE SEULE FOIS et jamais relue automatiquement.
+     Elle ne protege pas d'un effacement des donnees du site par le telephone,
+     mais elle protege d'un « Reinitialiser » malencontreux et d'un defaut ici. */
+  try {
+    var brutAvantMaj = storage.get(KEY);
+    if (brutAvantMaj && !storage.get('hs_stock_avant_maj_2026_09')) {
+      storage.set('hs_stock_avant_maj_2026_09', brutAvantMaj);
+    }
+  } catch (e) {}
+
   load();
+  peindreLibelleColonnes();
   render();
 })();
