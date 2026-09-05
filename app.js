@@ -666,6 +666,17 @@
       .then(function (ok) { if (ok) { seed(); goHome(); } });
   });
 
+  function zeroStock() {
+    state.products.forEach(function (p) { p.qty = 0; });
+    save(); goHome();
+  }
+
+  $('mZero').addEventListener('click', function () {
+    close(ovMenu);
+    dialog({ title: 'Tout remettre à zéro ?', msg: 'Les quantités des ' + state.products.length + ' références passeront à 0. Les produits, prix et catégories restent inchangés, seul le stock repart à zéro pour un nouveau comptage. Pense à exporter une sauvegarde avant si tu veux garder une trace de l\u2019état actuel.', danger: true, okLabel: 'Remettre à zéro' })
+      .then(function (ok) { if (ok) zeroStock(); });
+  });
+
   /* ---------- Clavier : garder le champ actif visible ---------- */
   document.addEventListener('focusin', function (e) {
     if (e.target.matches('input, select, textarea')) {
