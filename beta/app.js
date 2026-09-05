@@ -66,6 +66,7 @@
   }
 
   function photoDe(p) {
+    if (p.img) return p.img;               /* photo ajoutee a la main, elle prime */
     var f = (typeof PHOTOS !== 'undefined') ? PHOTOS[normPhoto(p.name)] : null;
     return f ? 'img/' + f : null;
   }
@@ -528,9 +529,83 @@
     }
   });
 
+  /* ---------- Photo choisie a la main ----------
+     L'image est redimensionnee DANS LE NAVIGATEUR avant d'etre gardee : le
+     stockage local tient environ 5 Mo pour toute l'app, une photo de telephone
+     brute en fait 3 a 8 a elle seule. On vise 320 px, comme les images du
+     catalogue, et on verifie apres coup que l'enregistrement a vraiment tenu. */
+  var photoForm = null;   /* valeur en cours d'edition : data URL, '' (retiree) ou null (inchangee) */
+
+  function redimensionner(fichier) {
+    return new Promise(function (resolve, reject) {
+      var lecteur = new FileReader();
+      lecteur.onerror = function () { reject(new Error('lecture')); };
+      lecteur.onload = function () {
+        var im = new Image();
+        im.onerror = function () { reject(new Error('image')); };
+        im.onload = function () {
+          var MAX = 320;
+          var r = Math.min(1, MAX / Math.max(im.width, im.height));
+          var c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(im.width * r));
+          c.height = Math.max(1, Math.round(im.height * r));
+          var ctx = c.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, c.width, c.height);
+          ctx.drawImage(im, 0, 0, c.width, c.height);
+          var sortie = c.toDataURL('image/webp', 0.8);
+          if (sortie.indexOf('data:image/webp') !== 0) sortie = c.toDataURL('image/jpeg', 0.82);
+          resolve(sortie);
+        };
+        im.src = lecteur.result;
+      };
+      lecteur.readAsDataURL(fichier);
+    });
+  }
+
+  function peindrePhotoForm(valeur) {
+    var ap = $('fPhotoApercu'), etat = $('fPhotoEtat');
+    if (valeur) {
+      ap.innerHTML = '<img src="' + valeur + '" alt="">';
+      $('btnPhotoRetirer').style.display = 'block';
+      $('btnPhotoChoisir').textContent = 'Changer la photo';
+      etat.textContent = (valeur.indexOf('data:') === 0)
+        ? 'Photo ajoutée (' + Math.round(valeur.length / 1024) + ' Ko)'
+        : 'Photo du catalogue';
+    } else {
+      ap.innerHTML = '<span>📷</span>';
+      $('btnPhotoRetirer').style.display = 'none';
+      $('btnPhotoChoisir').textContent = 'Choisir une photo';
+      etat.textContent = 'Aucune photo';
+    }
+  }
+
+  $('btnPhotoChoisir').addEventListener('click', function () { $('filePhoto').click(); });
+
+  $('filePhoto').addEventListener('change', function () {
+    var f = this.files[0];
+    this.value = '';
+    if (!f) return;
+    $('fPhotoEtat').textContent = 'Traitement…';
+    redimensionner(f).then(function (dataUrl) {
+      photoForm = dataUrl;
+      peindrePhotoForm(dataUrl);
+    }).catch(function () {
+      dialog({ title: 'Image illisible', msg: 'Ce fichier n\u2019a pas pu être lu. Essaie une photo JPEG ou PNG.', alert: true, okLabel: 'OK' });
+      $('fPhotoEtat').textContent = '';
+    });
+  });
+
+  $('btnPhotoRetirer').addEventListener('click', function () {
+    photoForm = '';
+    peindrePhotoForm(null);
+  });
+
   function openForm(id) {
     editingId = id;
     var p = id ? findP(id) : null;
+    photoForm = null;
+    peindrePhotoForm(p ? photoDe(p) : null);
     $('formTitle').textContent = p ? 'Modifier le produit' : 'Ajouter un produit';
     $('btnDelete').style.display = p ? 'block' : 'none';
     setFormCat(p ? p.cat : (state.view === 'cat' && state.cat ? state.cat : allCats()[0]));
@@ -595,14 +670,35 @@
       ddm: $('fDdm').value.trim(),
       note: $('fNote').value.trim()
     };
+    if (photoForm !== null) {
+      if (photoForm === '') data.img = '';
+      else data.img = photoForm;
+    }
+    var cible;
     if (editingId) {
-      var p = findP(editingId);
-      if (p) Object.keys(data).forEach(function (k) { p[k] = data[k]; });
+      cible = findP(editingId);
+      if (cible) Object.keys(data).forEach(function (k) { cible[k] = data[k]; });
     } else {
       data.id = uid();
       state.products.push(data);
+      cible = data;
     }
-    save(); render(); close(ovForm);
+    var avant = storage.get(KEY);
+    save();
+    /* Le stockage local est plafonne (environ 5 Mo). Quand il deborde, l'ecriture
+       echoue et le repli en memoire donne l'illusion d'un enregistrement reussi
+       jusqu'au prochain demarrage. On relit donc pour verifier, et on annule la
+       photo plutot que de laisser croire qu'elle est gardee. */
+    var relu = storage.get(KEY);
+    if (photoForm && cible && (!relu || relu.indexOf(String(cible.img).slice(0, 60)) === -1)) {
+      delete cible.img;
+      if (avant) storage.set(KEY, avant);
+      save();
+      render(); close(ovForm);
+      dialog({ title: 'Photo non enregistrée', msg: 'La mémoire de l\u2019application est pleine. Le produit est bien enregistré, mais pas sa photo. Retire quelques photos ajoutées à la main pour faire de la place.', alert: true, okLabel: 'OK' });
+      return;
+    }
+    render(); close(ovForm);
   });
 
   $('btnDelete').addEventListener('click', function () {
