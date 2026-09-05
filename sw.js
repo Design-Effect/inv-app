@@ -1,4 +1,7 @@
-var CACHE = 'hs-stock-v1.12';
+// Monter ce numero a CHAQUE modification d'index.html/app.js/data.js : sinon
+// sw.js ne change pas, le navigateur ne redetecte aucune mise a jour, et le
+// telephone sert l'ancienne version indefiniment.
+var CACHE = 'hs-stock-v1.13';
 var ASSETS = ['./', './index.html', './app.js', './data.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {
